@@ -7,7 +7,7 @@ import breeze.numerics._
 
 object HighlyVariableGenes {
 
-  def fit(matrix: RDD[Vector[Double]], rows: Int, n_bins: Int, top_k: Int) : List[Int] = {
+  def fit(matrix: RDD[Vector[Double]], rows: Long, n_bins: Int, top_k: Int) : List[Int] = {
     val means = genes_mean(matrix, rows)
     val variance = genes_variance(matrix, means, rows)
     val disp = dispersion(variance).data
@@ -22,13 +22,13 @@ object HighlyVariableGenes {
     rank_genes(norm_disps, top_k)
   }
 
-  def genes_mean(matrix: RDD[Vector[Double]], len: Int) : DenseVector[Double] = {
+  def genes_mean(matrix: RDD[Vector[Double]], len: Long) : DenseVector[Double] = {
     // len is the number of rows
     val means = matrix.reduce{case (a, b) => a + b} *:* (1 / len.toDouble)
     means.toDenseVector
   }
 
-  def genes_variance(matrix: RDD[Vector[Double]], means: DenseVector[Double], len: Int) : DenseVector[Double] = {
+  def genes_variance(matrix: RDD[Vector[Double]], means: DenseVector[Double], len: Long) : DenseVector[Double] = {
     // Mean of (v - mean(v)) squared
     val variance = matrix.fold(DenseVector.zeros[Double](means.length)){(a, b) => a + ((b - means) ^:^ 2.0)} *:* (1 / len.toDouble)
     variance.toDenseVector
