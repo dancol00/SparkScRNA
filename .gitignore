@@ -1,1 +1,9 @@
 target/
+*.jfr
+.bloop
+.DS_Store
+.idea
+.bsp
+.metals
+*csv
+.profileconfig.json
