@@ -1,12 +1,12 @@
-package distributed
+package distributed.sparkvector
 
 import org.apache.spark.rdd.RDD
-import breeze.linalg._
+import org.apache.spark.mllib.linalg.{Vector, Vectors, SparseVector}
 import org.apache.spark._
 import org.apache.spark.sql._
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.distributed._
-import breeze.numerics._
+import distributed.sparkvector.HighlyVariableGenes
 
 object Pipeline {
   def run(config: Map[String, String]) : Unit = {
@@ -74,11 +74,11 @@ object Pipeline {
     println(s"Done in ${elapsed / 1000.0}s.")
   }
 
-  def read_dense_csv(path: String)(sc: SparkContext) : RDD[Vector[Double]] = {
-    sc.textFile(path).map(row => row.split(",").map(_.toDouble)).map(DenseVector(_))
+  def read_dense_csv(path: String)(sc: SparkContext) : RDD[Vector] = {
+    sc.textFile(path).map(row => Vectors.dense(row.split(",").map(_.toDouble)))
   }
 
-  def read_sparse_csv(path: String)(ss: SparkSession) : RDD[Vector[Double]] = {
+  def read_sparse_csv(path: String)(ss: SparkSession) : RDD[Vector] = {
     val f = ss
       .read
       .csv(path)
@@ -93,17 +93,19 @@ object Pipeline {
       .map{ case (row, iter) => (row, iter.map{ case (row, col, data) => (col, data)})}
     grouped_by_row
       .map{case (_, iter) => {
-        val data = iter.toArray.unzip
-        new SparseVector(data._1, data._2, 27998)}
+        // Spark requires the indices of a sparse vector to be strictly increasing
+        val data = iter.toArray.sortBy(_._1).unzip
+        Vectors.sparse(27998, data._1, data._2)}
       }
   }
 
-  def genes_count(mat: RDD[Vector[Double]]) : DenseVector[Double] = {
-    mat.reduce{case (a, b) => a + b}.toDenseVector
+  def genes_count(mat: RDD[Vector]) : Vector = {
+    mat.reduce{case (a, b) =>
+      Vectors.dense(a.toArray.zip(b.toArray).map{case (x, y) => x + y})}
   }
 
-  def cells_count(mat: RDD[Vector[Double]]) : RDD[Double] = {
-    mat.map(sum(_))
+  def cells_count(mat: RDD[Vector]) : RDD[Double] = {
+    mat.map(_.toArray.sum)
   }
 
   def median_value(cells_sums: Array[Double]) : Double = {
@@ -115,67 +117,63 @@ object Pipeline {
     }
   }
 
-  def normalize_total(mat: RDD[Vector[Double]], target_row_sum: Double, row_sums_opt : Option[RDD[Double]] = None) : RDD[Vector[Double]] = {
+  def normalize_total(mat: RDD[Vector], target_row_sum: Double, row_sums_opt : Option[RDD[Double]] = None) : RDD[Vector] = {
     val rowSums = row_sums_opt match {
       case None => cells_count(mat)
       case Some(sums) => sums
     }
     mat.zip(rowSums).map{case (row, sum) => {
       val rate = target_row_sum / sum
-      row * rate
+      Vectors.dense(row.toArray.map(_ * rate))
     }}
   }
 
-  def highest_expr_genes(mat: RDD[Vector[Double]], top: Int, row_sums_opt : Option[RDD[Double]] = None) : Array[(Double, Int)] = {
+  def highest_expr_genes(mat: RDD[Vector], top: Int, row_sums_opt : Option[RDD[Double]] = None) : Array[(Double, Int)] = {
     val norm = normalize_total(mat, 100)
-    genes_count(norm).data.zipWithIndex.sortBy{case (v, index) => -v}.take(top)
+    genes_count(norm).toArray.zipWithIndex.sortBy{case (v, index) => -v}.take(top)
    }
 
-  def filter_cells_mask(mat: RDD[Vector[Double]], min_genes: Int): RDD[Boolean] = {
-    mat.map(_.valuesIterator.count(_ != 0) >= min_genes)
+  def filter_cells_mask(mat: RDD[Vector], min_genes: Int): RDD[Boolean] = {
+    mat.map(_.numNonzeros >= min_genes)
   }
 
-  def filter_genes_mask(mat: RDD[Vector[Double]], min_cells: Int) : Array[Boolean] = {
-//     mat.map(_.valuesIterator.map{case v => if (v > 0) 1 else 0}.toArray).map(DenseVector[Int](_)).reduce{case (a, b) => a + b}.data.zipWithIndex.filter{case (v, i) => v >= min_cells}.map(_._2)
+  def filter_genes_mask(mat: RDD[Vector], min_cells: Int) : Array[Boolean] = {
     mat.map(_
-      .valuesIterator
-      .map{case v => if (v != 0) 1 else 0}
-      .toArray)
+      .toArray
+      .map{case v => if (v != 0) 1 else 0})
       .reduce(
         (a, b) => a.zip(b).map{case (v1, v2) => v1 + v2})
       .map(_ >= min_cells)
       .toArray
   }
 
-  def remove_rows_with_mask(mat: RDD[Vector[Double]], mask: RDD[Boolean]) : RDD[Vector[Double]] = {
+  def remove_rows_with_mask(mat: RDD[Vector], mask: RDD[Boolean]) : RDD[Vector] = {
     mat.zip(mask).filter(_._2).map(_._1)
   }
 
-  def remove_columns_with_mask(mat: RDD[Vector[Double]], mask: Array[Boolean]): RDD[Vector[Double]] = {
+  def remove_columns_with_mask(mat: RDD[Vector], mask: Array[Boolean]): RDD[Vector] = {
     mat.map(row =>
       row match {
-        case r : SparseVector[Double] => {
-//          val vals = r.activeIterator.collect{case r if mask.contains(r._1) => r}.toArray.unzip
-          val vals = row.iterator.zip(mask).filter{case (_, b) => b == true}.map(_._1).toArray.unzip
-          new SparseVector[Double](vals._1, vals._2, mask.length)
+        case r : SparseVector => {
+          val vals = r.indices.zip(r.values).filter{case (i, _) => mask(i)}.unzip
+          Vectors.sparse(mask.length, vals._1, vals._2)
         }
         case _ => {
-//          val vals = row.valueIterator.collect{case r if mask.contains(r._1) => r._2}.toArray
-          val vals = row.valuesIterator.zip(mask).filter{case (_, b) => b == true}.map(_._1).toArray
-          new DenseVector[Double](vals)
+          Vectors.dense(row.toArray.zip(mask).filter{case (_, b) => b == true}.map(_._1))
                     }
       })
   }
 
-  def log1p_matrix(mat: RDD[Vector[Double]]) : RDD[Vector[Double]] = {
-    mat.map(log1p(_))
+  def log1p_matrix(mat: RDD[Vector]) : RDD[Vector] = {
+    mat.map(row => Vectors.dense(row.toArray.map(math.log1p)))
   }
 
-  def keep_highly_variable(mat: RDD[Vector[Double]], ranks: List[Int], cols: Int) : RowMatrix = {
+  def keep_highly_variable(mat: RDD[Vector], ranks: List[Int], cols: Int) : RowMatrix = {
     new RowMatrix(mat.map(row => {
       // Vectors have been limited to a 1000 length, and we only keep the most valuable, so keeping them dense
       // might not only be feasible, but also save space.
-      linalg.Vectors.dense(ranks.map(row(_)).toArray[Double])
+      val values = row.toArray
+      linalg.Vectors.dense(ranks.map(values(_)).toArray[Double])
     }))
   }
 }

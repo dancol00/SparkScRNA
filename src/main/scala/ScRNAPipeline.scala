@@ -9,9 +9,9 @@ object ScRNAPipeline {
     if (config("mode") == "local") {
       local.Pipeline.run(config)
     } else {
-      distributed.Pipeline.run(config)
+      distributed.sparkvector.Pipeline.run(config)
     }
-    
+
   }
 
   def nextArg(args: List[String], map: Map[String, String]) : Map[String,String] = {
