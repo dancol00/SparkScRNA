@@ -11,7 +11,7 @@ import distributed.sparkbreeze.HighlyVariableGenes
 
 object Pipeline {
   def run(config: Map[String, String]) : Unit = {
-    val mode = if (config("mode") == "local") "local[*]" else "yarn"
+    val mode = if (config("mode") == "sparklocal") "local[*]" else "yarn"
     val appName = "ScRNAPipeline"
     val sparkConf = new SparkConf().set("spark.driver.maxResultSize", "4g")
     val spark = SparkSession

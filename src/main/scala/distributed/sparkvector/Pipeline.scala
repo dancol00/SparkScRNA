@@ -10,7 +10,7 @@ import distributed.sparkvector.HighlyVariableGenes
 
 object Pipeline {
   def run(config: Map[String, String]) : Unit = {
-    val mode = if (config("mode") == "local") "local[*]" else "yarn"
+    val mode = if (config("mode") == "sparklocal") "local[*]" else "yarn"
     val appName = "ScRNAPipeline"
     val sparkConf = new SparkConf().set("spark.driver.maxResultSize", "4g")
     val spark = SparkSession
@@ -93,8 +93,8 @@ object Pipeline {
     grouped_by_row
       .map{case (_, iter) => {
         // Spark requires the indices of a sparse vector to be strictly increasing
-        val data = iter.toArray.sortBy(_._1).unzip
-        Vectors.sparse(27998, data._1, data._2)}
+        // val data = iter.toArray.sortBy(_._1).unzip
+        Vectors.sparse(27998, iter.toSeq)}
       }
   }
 
