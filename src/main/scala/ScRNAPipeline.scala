@@ -6,11 +6,7 @@ object ScRNAPipeline {
     }
     val config: Map[String, String] = nextArg(args.toList, Map())
 
-    if (config("mode") == "local") {
-      local.Pipeline.run(config)
-    } else {
-      distributed.sparkvector.Pipeline.run(config)
-    }
+    distributed.Pipeline.run(config)
 
   }
 

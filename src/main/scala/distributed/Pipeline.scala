@@ -1,4 +1,4 @@
-package distributed.sparkvector
+package distributed
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.linalg.{Vector, Vectors, SparseVector}
@@ -6,12 +6,12 @@ import org.apache.spark._
 import org.apache.spark.sql._
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.distributed._
-import distributed.sparkvector.HighlyVariableGenes
+import distributed.HighlyVariableGenes
 import org.apache.spark.storage.StorageLevel
 
 object Pipeline {
   def run(config: Map[String, String]) : Unit = {
-    val mode = if (config("mode") == "sparklocal") "local[*]" else "yarn"
+    val mode = if (config("mode") == "local") "local[*]" else "yarn"
     val appName = "ScRNAPipeline"
     val sparkConf = new SparkConf().set("spark.driver.maxResultSize", "4g")
     val spark = SparkSession

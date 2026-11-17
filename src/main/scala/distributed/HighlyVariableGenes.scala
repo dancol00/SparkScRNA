@@ -1,4 +1,4 @@
-package distributed.sparkvector
+package distributed
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.linalg.{Vector, Vectors}
