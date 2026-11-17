@@ -23,7 +23,7 @@ object Pipeline {
     val ss = spark
     import ss.implicits._
     val sc = spark.sparkContext
-
+    sc.setLogLevel("WARN")
 
     var real_start = System.currentTimeMillis()
     var start = System.currentTimeMillis()
