@@ -11,14 +11,14 @@ import org.apache.spark.storage.StorageLevel
 
 object Pipeline {
   def run(config: Map[String, String]) : Unit = {
-    val mode = if (config("mode") == "local") "local[*]" else "yarn"
+    // val mode = if (config("mode") == "local") "local[*]" else "yarn"
     val appName = "ScRNAPipeline"
     val sparkConf = new SparkConf().set("spark.driver.maxResultSize", "4g")
     val spark = SparkSession
       .builder
       .config(sparkConf)
       .appName(appName)
-      .master(mode)
+      // .master(mode)
       .getOrCreate()
     val ss = spark
     import ss.implicits._
@@ -56,9 +56,9 @@ object Pipeline {
     start = System.currentTimeMillis()
     val norm_mat = normalize_total(filtered_matrix, 10000)
     val log_mat = log1p_matrix(norm_mat)
-    log_mat.persist(StorageLevel.MEMORY_AND_DISK_SER)
-    log_mat.count()      // force materialization before releasing input
-    input.unpersist()    // log_mat is cached; input's lineage is dead now
+    // log_mat.persist(StorageLevel.MEMORY_AND_DISK_SER)
+    // log_mat.count()      // force materialization before releasing input
+    // input.unpersist()    // log_mat is cached; input's lineage is dead now
     elapsed = System.currentTimeMillis() - start
     println(s"Time elapsed for phase 3: ${elapsed / 1000.0}")
 
