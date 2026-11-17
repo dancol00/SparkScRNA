@@ -7,6 +7,7 @@ import org.apache.spark.sql._
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.distributed._
 import distributed.sparkvector.HighlyVariableGenes
+import org.apache.spark.storage.StorageLevel
 
 object Pipeline {
   def run(config: Map[String, String]) : Unit = {
@@ -30,6 +31,7 @@ object Pipeline {
       case "sparse" => read_sparse_csv(config("input"))(ss)
       case _ => read_dense_csv(config("input"))(sc)
     }
+    input.persist(StorageLevel.MEMORY_AND_DISK_SER)
     var elapsed = System.currentTimeMillis() - start
     println(s"Time elapsed for read_csv: ${elapsed / 1000.0}")
 
@@ -54,6 +56,9 @@ object Pipeline {
     start = System.currentTimeMillis()
     val norm_mat = normalize_total(filtered_matrix, 10000)
     val log_mat = log1p_matrix(norm_mat)
+    log_mat.persist(StorageLevel.MEMORY_AND_DISK_SER)
+    log_mat.count()      // force materialization before releasing input
+    input.unpersist()    // log_mat is cached; input's lineage is dead now
     elapsed = System.currentTimeMillis() - start
     println(s"Time elapsed for phase 3: ${elapsed / 1000.0}")
 
