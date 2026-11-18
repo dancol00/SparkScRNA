@@ -1,7 +1,7 @@
 object ScRNAPipeline {
   def main(args: Array[String]) : Unit = {
     if (args.length < 6) {
-      println("Usage: program.jar -i input_file -o output_file -m local|spark -t dense|sparse")
+      println("Usage: program.jar -i input_file -o output_file -t dense|sparse")
       sys.exit(-1)
     }
     val config: Map[String, String] = nextArg(args.toList, Map())
