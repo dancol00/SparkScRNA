@@ -6,7 +6,6 @@ import org.apache.spark._
 import org.apache.spark.sql._
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.distributed._
-import distributed.HighlyVariableGenes
 import org.apache.spark.storage.StorageLevel
 
 object Pipeline {
