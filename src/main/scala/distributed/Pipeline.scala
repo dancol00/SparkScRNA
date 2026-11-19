@@ -56,9 +56,9 @@ object Pipeline {
     start = System.currentTimeMillis()
     val norm_mat = normalize_total(filtered_matrix, 10000)
     val log_mat = log1p_matrix(norm_mat)
-    // log_mat.persist(StorageLevel.MEMORY_AND_DISK_SER)
-    // log_mat.count()      // force materialization before releasing input
-    // input.unpersist()    // log_mat is cached; input's lineage is dead now
+    log_mat.persist(StorageLevel.MEMORY_AND_DISK_SER)
+    log_mat.count()  // force materialization before releasing input
+    input.unpersist()
     elapsed = System.currentTimeMillis() - start
     println(s"Time elapsed for phase 3: ${elapsed / 1000.0}")
 
